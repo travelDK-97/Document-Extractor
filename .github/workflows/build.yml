@@ -1,70 +1,36 @@
-# .github/workflows/build.yml
-name: 自动打包文档提取工具
+name: Build EXE
+
 on:
-  workflow_dispatch:
   push:
-    branches: [ main ]
-    paths: [ 'app_gui.py', 'requirements.txt' ]
+    tags:
+      - 'v*' # 当你推送以 v 开头的标签（如 v1.0）时触发打包
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build:
+    runs-on: windows-latest  # 在 Windows 环境下运行
+
     steps:
-      - name: 拉取代码
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: 安装 Python 3.9
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-          cache: 'pip'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
 
-      - name: 安装依赖
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller
-          pip install -r requirements.txt
-          pip list
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        # 如果你有 requirements.txt，取消下面一行的注释
+        # pip install -r requirements.txt 
+        # 如果没有文件，直接在这里 pip install 你用到的库（如 pip install requests）
 
-      - name: 用 PyInstaller 打包（Windows 兼容版）
-        run: |
-          # 获取 RapidOCR 模型路径并写入临时文件
-          python -c "import rapidocr_onnxruntime; import os; print(os.path.join(rapidocr_onnxruntime.__path__[0], 'models'))" > model_path.txt
-          # 读取临时文件中的路径
-          set /p MODEL_PATH=<model_path.txt
-          # 删除临时文件
-          del model_path.txt
-          # 执行打包（^ 是 Windows 换行符）
-          pyinstaller --onefile --windowed --name DocumentExtractor ^
-          --add-data "%MODEL_PATH%;models" ^
-          app_gui.py
-        shell: cmd
+    - name: Build with PyInstaller
+      run: pyinstaller --onefile --windowed main.py
 
-      - name: 查看打包结果
-        run: |
-          dir dist
-          dir dist\models || echo "models 目录未生成"
-
-      - name: 上传临时产物
-        uses: actions/upload-artifact@v4
-        with:
-          name: DocumentExtractor-Win
-          path: |
-            dist/DocumentExtractor.exe
-            dist/models/
-
-      - name: 创建 Release 并上传
-        uses: softprops/action-gh-release@v1
-        if: github.ref == 'refs/heads/main'
-        with:
-          tag_name: v1.0.${{ github.run_number }}
-          name: 文档提取工具 v1.0.${{ github.run_number }}
-          body: |
-            自动打包版本，修复了模型路径打包问题
-            - 适配 Windows 系统 PyInstaller 语法
-            - 自动复制 RapidOCR 模型文件
-          files: |
-            dist/DocumentExtractor.exe
-            dist/models/
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: my-gui-app
+        path: dist/*.exe
