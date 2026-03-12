@@ -3,11 +3,11 @@ name: Build EXE
 on:
   push:
     tags:
-      - 'v*' # 当你推送以 v 开头的标签（如 v1.0）时触发打包
+      - 'v*' # 当你推送以 v 开头的标签（如 v1.0, v1.1）时触发打包
 
 jobs:
   build:
-    runs-on: windows-latest  # 在 Windows 环境下运行
+    runs-on: windows-latest  # 使用 Windows 云端环境
 
     steps:
     - name: Checkout code
@@ -22,15 +22,21 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pyinstaller
-        # 如果你有 requirements.txt，取消下面一行的注释
-        # pip install -r requirements.txt 
-        # 如果没有文件，直接在这里 pip install 你用到的库（如 pip install requests）
+        # ⚠️ 关键步骤：云端环境是一张白纸，必须在这里安装你的依赖库！
+        # 如果你的项目根目录有 requirements.txt，请务必保留下面这行：
+        pip install -r requirements.txt 
+        # 如果你没有 requirements.txt，你需要把上面那行删掉，并在这里手动写上你的库，例如：
+        # pip install rapidocr_onnxruntime pdfplumber 
 
     - name: Build with PyInstaller
-      run: pyinstaller --onefile --windowed main.py
+      # 🚀 核心修复：
+      # 1. 使用 --collect-all 自动抓取 rapidocr_onnxruntime 的所有模型文件
+      # 2. 指定输出名称为 DocumentExtractor
+      # 3. 指定入口文件为 app_gui.py
+      run: pyinstaller --onefile --windowed --name DocumentExtractor --collect-all rapidocr_onnxruntime app_gui.py
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: my-gui-app
+        name: DocumentExtractor-Windows-EXE
         path: dist/*.exe
