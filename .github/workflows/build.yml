@@ -1,51 +1,50 @@
 # .github/workflows/build.yml
 name: 自动打包文档提取工具
 on:
-  # 触发条件1：手动触发（推荐先测试）
   workflow_dispatch:
-  # 触发条件2：推送到 main 分支且修改了 app_gui.py 时自动触发（可选）
   push:
     branches: [ main ]
     paths: [ 'app_gui.py', 'requirements.txt' ]
 
 jobs:
   build-windows:
-    # 使用 Windows 服务器打包（必须，因为依赖 win32com）
     runs-on: windows-latest
     steps:
-      # 步骤1：拉取仓库代码
       - name: 拉取代码
         uses: actions/checkout@v4
 
-      # 步骤2：配置 Python 环境（3.8+ 适配 win32com/RapidOCR）
       - name: 安装 Python 3.9
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-          cache: 'pip' # 缓存依赖，加速构建
+          cache: 'pip'
 
-      # 步骤3：安装所有依赖（含打包工具 pyinstaller）
       - name: 安装依赖
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r requirements.txt
-          # 验证依赖安装（可选，排错用）
           pip list
 
-      # 步骤4：打包成 EXE（核心步骤）
-      - name: 用 PyInstaller 打包
+      - name: 用 PyInstaller 打包（Windows 兼容版）
         run: |
-          pyinstaller --onefile --windowed --name DocumentExtractor --add-data "$(python -c "import rapidocr_onnxruntime; print(rapidocr_onnxruntime.__path__[0])/models;"):models" app_gui.py
+          # 获取 RapidOCR 模型路径并写入临时文件
+          python -c "import rapidocr_onnxruntime; import os; print(os.path.join(rapidocr_onnxruntime.__path__[0], 'models'))" > model_path.txt
+          # 读取临时文件中的路径
+          set /p MODEL_PATH=<model_path.txt
+          # 删除临时文件
+          del model_path.txt
+          # 执行打包（^ 是 Windows 换行符）
+          pyinstaller --onefile --windowed --name DocumentExtractor ^
+          --add-data "%MODEL_PATH%;models" ^
+          app_gui.py
         shell: cmd
 
-      # 步骤5：检查打包产物（可选，排错用）
       - name: 查看打包结果
         run: |
           dir dist
           dir dist\models || echo "models 目录未生成"
 
-      # 步骤6：上传打包产物为 Artifact（临时下载，测试用）
       - name: 上传临时产物
         uses: actions/upload-artifact@v4
         with:
@@ -54,19 +53,18 @@ jobs:
             dist/DocumentExtractor.exe
             dist/models/
 
-      # 步骤7：自动创建 Release 并上传产物（可选，发布正式版用）
       - name: 创建 Release 并上传
         uses: softprops/action-gh-release@v1
-        if: github.ref == 'refs/heads/main' # 仅 main 分支触发
+        if: github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.${{ github.run_number }} # 自动生成版本号（v1.0.1、v1.0.2...）
+          tag_name: v1.0.${{ github.run_number }}
           name: 文档提取工具 v1.0.${{ github.run_number }}
           body: |
-            自动打包版本，包含以下更新：
-            - 修复已知问题
-            - 适配 RapidOCR 模型自动打包
+            自动打包版本，修复了模型路径打包问题
+            - 适配 Windows 系统 PyInstaller 语法
+            - 自动复制 RapidOCR 模型文件
           files: |
             dist/DocumentExtractor.exe
             dist/models/
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub 自动生成的令牌，无需手动配置
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
