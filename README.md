@@ -21,7 +21,7 @@
 ### 1. 克隆仓库并安装依赖
 
 \`\`\`bash
-git clone https://github.com/你的用户名/你的仓库名.git
+git clone https://github.com/travelDK-97/Document-Extractor.git
 cd 你的仓库名
 
 # 建议在虚拟环境中运行
