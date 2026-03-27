@@ -22,7 +22,6 @@
 
 \`\`\`bash
 git clone https://github.com/travelDK-97/Document-Extractor.git
-
 # 建议在虚拟环境中运行
 pip install -r requirements.txt
 \`\`\`
